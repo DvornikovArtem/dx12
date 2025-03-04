@@ -404,23 +404,23 @@ void StencilApp::OnKeyboardInput(const GameTimer& gt)
 	mSkullTranslation.y = MathHelper::Max(mSkullTranslation.y, 0.0f);
 
 	// Update the new world matrix.
-	XMMATRIX skullRotate = XMMatrixRotationY(0.5f*MathHelper::Pi);
-	XMMATRIX skullScale = XMMatrixScaling(0.45f, 0.45f, 0.45f);
-	XMMATRIX skullOffset = XMMatrixTranslation(mSkullTranslation.x, mSkullTranslation.y, mSkullTranslation.z);
-	XMMATRIX skullWorld = skullRotate*skullScale*skullOffset;
-	XMStoreFloat4x4(&mSkullRitem->World, skullWorld);
+	//XMMATRIX skullRotate = XMMatrixRotationY(0.5f*MathHelper::Pi);
+	//XMMATRIX skullScale = XMMatrixScaling(0.45f, 0.45f, 0.45f);
+	//XMMATRIX skullOffset = XMMatrixTranslation(mSkullTranslation.x, mSkullTranslation.y, mSkullTranslation.z);
+	//XMMATRIX skullWorld = skullRotate*skullScale*skullOffset;
+	//XMStoreFloat4x4(&mSkullRitem->World, skullWorld);
 
 	// Update reflection world matrix.
 	XMVECTOR mirrorPlane = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f); // xy plane
 	XMMATRIX R = XMMatrixReflect(mirrorPlane);
-	XMStoreFloat4x4(&mReflectedSkullRitem->World, skullWorld * R);
+	//XMStoreFloat4x4(&mReflectedSkullRitem->World, skullWorld * R);
 
 	// Update shadow world matrix.
 	XMVECTOR shadowPlane = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f); // xz plane
 	XMVECTOR toMainLight = -XMLoadFloat3(&mMainPassCB.Lights[0].Direction);
 	XMMATRIX S = XMMatrixShadow(shadowPlane, toMainLight);
 	XMMATRIX shadowOffsetY = XMMatrixTranslation(0.0f, 0.001f, 0.0f);
-	XMStoreFloat4x4(&mShadowedSkullRitem->World, skullWorld * S * shadowOffsetY);
+	//XMStoreFloat4x4(&mShadowedSkullRitem->World, skullWorld * S * shadowOffsetY);
 
 	mSkullRitem->NumFramesDirty = gNumFrameResources;
 	mReflectedSkullRitem->NumFramesDirty = gNumFrameResources;
@@ -1316,7 +1316,7 @@ void StencilApp::BuildMaterials()
 
 void StencilApp::BuildRenderItems()
 {
-	auto floorRitem = std::make_unique<RenderItem>();
+	/*auto floorRitem = std::make_unique<RenderItem>();
 	floorRitem->World = MathHelper::Identity4x4();
 	floorRitem->TexTransform = MathHelper::Identity4x4();
 	floorRitem->ObjCBIndex = 0;
@@ -1339,11 +1339,11 @@ void StencilApp::BuildRenderItems()
 	wallsRitem->IndexCount = wallsRitem->Geo->DrawArgs["wall"].IndexCount;
 	wallsRitem->StartIndexLocation = wallsRitem->Geo->DrawArgs["wall"].StartIndexLocation;
 	wallsRitem->BaseVertexLocation = wallsRitem->Geo->DrawArgs["wall"].BaseVertexLocation;
-	mRitemLayer[(int)RenderLayer::Opaque].push_back(wallsRitem.get());
+	mRitemLayer[(int)RenderLayer::Opaque].push_back(wallsRitem.get());*/
 
 	auto skullRitem = std::make_unique<RenderItem>();
 	skullRitem->World = MathHelper::Identity4x4();
-	XMStoreFloat4x4(&skullRitem->World, XMMatrixScaling(10.0f, 10.0f, 1.0f) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	XMStoreFloat4x4(&skullRitem->World, XMMatrixScaling(3.0f, 3.0f, 3.0f) * XMMatrixRotationRollPitchYaw(0.3f, 0.0f, 0.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 	skullRitem->TexTransform = MathHelper::Identity4x4();
 	//XMStoreFloat4x4(&skullRitem->TexTransform, XMMatrixScaling(1.0f, 10.0f, 1.0f));
 	skullRitem->ObjCBIndex = 2;
@@ -1357,39 +1357,39 @@ void StencilApp::BuildRenderItems()
 	mRitemLayer[(int)RenderLayer::Opaque].push_back(skullRitem.get());
 
 	// Reflected skull will have different world matrix, so it needs to be its own render item.
-	auto reflectedSkullRitem = std::make_unique<RenderItem>();
-	*reflectedSkullRitem = *skullRitem;
-	reflectedSkullRitem->ObjCBIndex = 3;
-	mReflectedSkullRitem = reflectedSkullRitem.get();
-	mRitemLayer[(int)RenderLayer::Reflected].push_back(reflectedSkullRitem.get());
+	//auto reflectedSkullRitem = std::make_unique<RenderItem>();
+	//*reflectedSkullRitem = *skullRitem;
+	//reflectedSkullRitem->ObjCBIndex = 3;
+	//mReflectedSkullRitem = reflectedSkullRitem.get();
+	//mRitemLayer[(int)RenderLayer::Reflected].push_back(reflectedSkullRitem.get());
 
-	// Shadowed skull will have different world matrix, so it needs to be its own render item.
-	auto shadowedSkullRitem = std::make_unique<RenderItem>();
-	*shadowedSkullRitem = *skullRitem;
-	shadowedSkullRitem->ObjCBIndex = 4;
-	shadowedSkullRitem->Mat = mMaterials["shadowMat"].get();
-	mShadowedSkullRitem = shadowedSkullRitem.get();
-	mRitemLayer[(int)RenderLayer::Shadow].push_back(shadowedSkullRitem.get());
+	//// Shadowed skull will have different world matrix, so it needs to be its own render item.
+	//auto shadowedSkullRitem = std::make_unique<RenderItem>();
+	//*shadowedSkullRitem = *skullRitem;
+	//shadowedSkullRitem->ObjCBIndex = 4;
+	//shadowedSkullRitem->Mat = mMaterials["shadowMat"].get();
+	//mShadowedSkullRitem = shadowedSkullRitem.get();
+	//mRitemLayer[(int)RenderLayer::Shadow].push_back(shadowedSkullRitem.get());
 
-	auto mirrorRitem = std::make_unique<RenderItem>();
-	mirrorRitem->World = MathHelper::Identity4x4();
-	mirrorRitem->TexTransform = MathHelper::Identity4x4();
-	mirrorRitem->ObjCBIndex = 5;
-	mirrorRitem->Mat = mMaterials["icemirror"].get();
-	mirrorRitem->Geo = mGeometries["roomGeo"].get();
-	mirrorRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	mirrorRitem->IndexCount = mirrorRitem->Geo->DrawArgs["mirror"].IndexCount;
-	mirrorRitem->StartIndexLocation = mirrorRitem->Geo->DrawArgs["mirror"].StartIndexLocation;
-	mirrorRitem->BaseVertexLocation = mirrorRitem->Geo->DrawArgs["mirror"].BaseVertexLocation;
-	mRitemLayer[(int)RenderLayer::Mirrors].push_back(mirrorRitem.get());
-	mRitemLayer[(int)RenderLayer::Transparent].push_back(mirrorRitem.get());
+	//auto mirrorRitem = std::make_unique<RenderItem>();
+	//mirrorRitem->World = MathHelper::Identity4x4();
+	//mirrorRitem->TexTransform = MathHelper::Identity4x4();
+	//mirrorRitem->ObjCBIndex = 5;
+	//mirrorRitem->Mat = mMaterials["icemirror"].get();
+	//mirrorRitem->Geo = mGeometries["roomGeo"].get();
+	//mirrorRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	//mirrorRitem->IndexCount = mirrorRitem->Geo->DrawArgs["mirror"].IndexCount;
+	//mirrorRitem->StartIndexLocation = mirrorRitem->Geo->DrawArgs["mirror"].StartIndexLocation;
+	//mirrorRitem->BaseVertexLocation = mirrorRitem->Geo->DrawArgs["mirror"].BaseVertexLocation;
+	//mRitemLayer[(int)RenderLayer::Mirrors].push_back(mirrorRitem.get());
+	//mRitemLayer[(int)RenderLayer::Transparent].push_back(mirrorRitem.get());
 
-	mAllRitems.push_back(std::move(floorRitem));
-	mAllRitems.push_back(std::move(wallsRitem));
+	//mAllRitems.push_back(std::move(floorRitem));
+	//mAllRitems.push_back(std::move(wallsRitem));
 	mAllRitems.push_back(std::move(skullRitem));
-	mAllRitems.push_back(std::move(reflectedSkullRitem));
-	mAllRitems.push_back(std::move(shadowedSkullRitem));
-	mAllRitems.push_back(std::move(mirrorRitem));
+	//mAllRitems.push_back(std::move(reflectedSkullRitem));
+	//mAllRitems.push_back(std::move(shadowedSkullRitem));
+	//mAllRitems.push_back(std::move(mirrorRitem));
 }
 
 void StencilApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)

@@ -45,6 +45,9 @@ private:
     virtual void OnMouseDown(WPARAM btnState, int x, int y)override;
     virtual void OnMouseUp(WPARAM btnState, int x, int y)override;
     virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
+    virtual void OnMouseWheelMove(WPARAM rotation)override;
+
+    virtual void OnKeyboardPressed(WPARAM pressedButton, const GameTimer& gt)override;
 
     void BuildDescriptorHeaps();
 	void BuildConstantBuffers();
@@ -75,7 +78,12 @@ private:
 
     float mTheta = 1.5f*XM_PI;
     float mPhi = XM_PIDIV4;
+
+    // Расстояние до камеры
     float mRadius = 5.0f;
+
+    XMFLOAT3 mCameraPosition = { 0.0f, 0.0f, -mRadius }; // Начальная позиция камеры
+    float mMoveSpeed = 50.0f; // Скорость движения камеры
 
     POINT mLastMousePos;
 };
@@ -103,14 +111,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
     }
 }
 
-BoxApp::BoxApp(HINSTANCE hInstance)
-: D3DApp(hInstance) 
-{
-}
+BoxApp::BoxApp(HINSTANCE hInstance) : D3DApp(hInstance) {}
 
-BoxApp::~BoxApp()
-{
-}
+BoxApp::~BoxApp() {}
 
 bool BoxApp::Initialize()
 {
@@ -150,16 +153,20 @@ void BoxApp::OnResize()
 void BoxApp::Update(const GameTimer& gt)
 {
     // Convert Spherical to Cartesian coordinates.
-    float x = mRadius*sinf(mPhi)*cosf(mTheta);
-    float z = mRadius*sinf(mPhi)*sinf(mTheta);
-    float y = mRadius*cosf(mPhi);
+    //float x = mRadius*sinf(mPhi)*cosf(mTheta);
+    //float z = mRadius*sinf(mPhi)*sinf(mTheta);
+    //float y = mRadius*cosf(mPhi);
+
+    mCameraPosition.x = mRadius * sinf(mPhi) * cosf(mTheta);
+    mCameraPosition.z = mRadius*sinf(mPhi)*sinf(mTheta);
+    mCameraPosition.y = mRadius*cosf(mPhi);
 
     // Build the view matrix.
-    XMVECTOR pos = XMVectorSet(x, y, z, 1.0f);
-    XMVECTOR target = XMVectorZero();
+    XMVECTOR cameraPosition = XMVectorSet(mCameraPosition.x, mCameraPosition.y, mCameraPosition.z, 1.0f);
+    XMVECTOR sceneCenter = XMVectorZero();
     XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
-    XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
+    XMMATRIX view = XMMatrixLookAtLH(cameraPosition, sceneCenter, up);
     XMStoreFloat4x4(&mView, view);
 
     XMMATRIX world = XMLoadFloat4x4(&mWorld);
@@ -190,7 +197,7 @@ void BoxApp::Draw(const GameTimer& gt)
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
     // Clear the back buffer and depth buffer.
-    mCommandList->ClearRenderTargetView(CurrentBackBufferView(), Colors::LightSteelBlue, 0, nullptr);
+    mCommandList->ClearRenderTargetView(CurrentBackBufferView(), Colors::Black, 0, nullptr);
     mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 	
     // Specify the buffers we are going to render to.
@@ -254,11 +261,12 @@ void BoxApp::OnMouseMove(WPARAM btnState, int x, int y)
         float dy = XMConvertToRadians(0.25f*static_cast<float>(y - mLastMousePos.y));
 
         // Update angles based on input to orbit camera around box.
-        mTheta += dx;
-        mPhi += dy;
+        mTheta -= dx;
+        mPhi -= dy;
 
         // Restrict the angle mPhi.
         mPhi = MathHelper::Clamp(mPhi, 0.1f, MathHelper::Pi - 0.1f);
+
     }
     else if((btnState & MK_RBUTTON) != 0)
     {
@@ -267,14 +275,44 @@ void BoxApp::OnMouseMove(WPARAM btnState, int x, int y)
         float dy = 0.005f*static_cast<float>(y - mLastMousePos.y);
 
         // Update the camera radius based on input.
-        mRadius += dx - dy;
+        //mRadius += dx - dy;
 
         // Restrict the radius.
-        mRadius = MathHelper::Clamp(mRadius, 3.0f, 15.0f);
+        //mRadius = MathHelper::Clamp(mRadius, 3.0f, 15.0f);
     }
 
     mLastMousePos.x = x;
     mLastMousePos.y = y;
+}
+
+void BoxApp::OnMouseWheelMove(WPARAM rotation) {
+    mRadius -= int(rotation) * 0.0000001f;
+    mRadius = MathHelper::Clamp(mRadius, 3.0f, 15.0f);
+    std::wstring t = L"Rotated on ";
+    t += mRadius;
+    t += L" degrees\n";
+    OutputDebugString(t.c_str());
+}
+
+void BoxApp::OnKeyboardPressed(WPARAM pressedButton, const GameTimer& gt) {
+
+    float dt = gt.DeltaTime();
+    XMFLOAT4 forward = XMFLOAT4(-mCameraPosition.x, -mCameraPosition.y, -mCameraPosition.z, 1.f); // Направление вперёд
+    XMFLOAT4 right = { 1.0f, 0.0f, 0.0f, 1.f };   // Направление вправо
+
+    if (pressedButton == 'W') {
+        //mRadius -= mMoveSpeed * dt;
+        OutputDebugString(L"Pressed W!!! :)))");
+    }
+    if (pressedButton == 'A') {
+        //mTheta -= mMoveSpeed * dt;
+        //mPhi -= mMoveSpeed * dt;
+    }
+    if (pressedButton == 'S') {
+        //mRadius += mMoveSpeed * dt;
+    }
+    if (pressedButton == 'D') {
+    }
 }
 
 void BoxApp::BuildDescriptorHeaps()

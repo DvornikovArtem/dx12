@@ -70,6 +70,7 @@ private:
     virtual void OnMouseDown(WPARAM btnState, int x, int y)override;
     virtual void OnMouseUp(WPARAM btnState, int x, int y)override;
     virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
+	virtual void OnMouseWheelMove(WPARAM rotation)override;
 
     void OnKeyboardInput(const GameTimer& gt);
 	void UpdateCamera(const GameTimer& gt);
@@ -314,8 +315,8 @@ void TexColumnsApp::OnMouseMove(WPARAM btnState, int x, int y)
         float dy = XMConvertToRadians(0.25f*static_cast<float>(y - mLastMousePos.y));
 
         // Update angles based on input to orbit camera around box.
-        mTheta += dx;
-        mPhi += dy;
+        mTheta -= dx;
+        mPhi -= dy;
 
         // Restrict the angle mPhi.
         mPhi = MathHelper::Clamp(mPhi, 0.1f, MathHelper::Pi - 0.1f);
@@ -327,14 +328,19 @@ void TexColumnsApp::OnMouseMove(WPARAM btnState, int x, int y)
         float dy = 0.05f*static_cast<float>(y - mLastMousePos.y);
 
         // Update the camera radius based on input.
-        mRadius += dx - dy;
+        //mRadius += dx - dy;
 
         // Restrict the radius.
-        mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
+        //mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
     }
 
     mLastMousePos.x = x;
     mLastMousePos.y = y;
+}
+
+void TexColumnsApp::OnMouseWheelMove(WPARAM rotation) {
+	mRadius -= int(rotation) * 0.0000001;
+	mRadius = MathHelper::Clamp(mRadius, 5.0f, 25.0f);
 }
  
 void TexColumnsApp::OnKeyboardInput(const GameTimer& gt)
@@ -586,6 +592,7 @@ void TexColumnsApp::BuildShapeGeometry()
     GeometryGenerator geoGen;
 	GeometryGenerator::MeshData box = geoGen.CreateBox(1.0f, 1.0f, 1.0f, 3);
 	GeometryGenerator::MeshData grid = geoGen.CreateGrid(20.0f, 30.0f, 60, 40);
+	GeometryGenerator::MeshData plane = geoGen.CreatePlane(30.0f, 30.0f, 60, 60);
 	GeometryGenerator::MeshData sphere = geoGen.CreateSphere(0.5f, 20, 20);
 	GeometryGenerator::MeshData cylinder = geoGen.CreateCylinder(0.5f, 0.3f, 3.0f, 20, 20);
 
@@ -597,12 +604,14 @@ void TexColumnsApp::BuildShapeGeometry()
 	// Cache the vertex offsets to each object in the concatenated vertex buffer.
 	UINT boxVertexOffset = 0;
 	UINT gridVertexOffset = (UINT)box.Vertices.size();
+	UINT planeVertexOffset = (UINT)box.Vertices.size();
 	UINT sphereVertexOffset = gridVertexOffset + (UINT)grid.Vertices.size();
 	UINT cylinderVertexOffset = sphereVertexOffset + (UINT)sphere.Vertices.size();
 
 	// Cache the starting index for each object in the concatenated index buffer.
 	UINT boxIndexOffset = 0;
 	UINT gridIndexOffset = (UINT)box.Indices32.size();
+	UINT planeIndexOffset = (UINT)box.Indices32.size();
 	UINT sphereIndexOffset = gridIndexOffset + (UINT)grid.Indices32.size();
 	UINT cylinderIndexOffset = sphereIndexOffset + (UINT)sphere.Indices32.size();
 
@@ -615,6 +624,11 @@ void TexColumnsApp::BuildShapeGeometry()
 	gridSubmesh.IndexCount = (UINT)grid.Indices32.size();
 	gridSubmesh.StartIndexLocation = gridIndexOffset;
 	gridSubmesh.BaseVertexLocation = gridVertexOffset;
+
+	SubmeshGeometry planeSubmesh;
+	planeSubmesh.IndexCount = (UINT)plane.Indices32.size();
+	planeSubmesh.StartIndexLocation = planeIndexOffset;
+	planeSubmesh.BaseVertexLocation = planeVertexOffset;
 
 	SubmeshGeometry sphereSubmesh;
 	sphereSubmesh.IndexCount = (UINT)sphere.Indices32.size();
@@ -634,6 +648,7 @@ void TexColumnsApp::BuildShapeGeometry()
 	auto totalVertexCount =
 		box.Vertices.size() +
 		grid.Vertices.size() +
+		plane.Vertices.size() +
 		sphere.Vertices.size() +
 		cylinder.Vertices.size();
 
@@ -654,6 +669,13 @@ void TexColumnsApp::BuildShapeGeometry()
 		vertices[k].TexC = grid.Vertices[i].TexC;
 	}
 
+	for (size_t i = 0; i < plane.Vertices.size(); ++i, ++k)
+	{
+		vertices[k].Pos = plane.Vertices[i].Position;
+		vertices[k].Normal = plane.Vertices[i].Normal;
+		vertices[k].TexC = plane.Vertices[i].TexC;
+	}
+
 	for(size_t i = 0; i < sphere.Vertices.size(); ++i, ++k)
 	{
 		vertices[k].Pos = sphere.Vertices[i].Position;
@@ -671,6 +693,7 @@ void TexColumnsApp::BuildShapeGeometry()
 	std::vector<std::uint16_t> indices;
 	indices.insert(indices.end(), std::begin(box.GetIndices16()), std::end(box.GetIndices16()));
 	indices.insert(indices.end(), std::begin(grid.GetIndices16()), std::end(grid.GetIndices16()));
+	indices.insert(indices.end(), std::begin(plane.GetIndices16()), std::end(plane.GetIndices16()));
 	indices.insert(indices.end(), std::begin(sphere.GetIndices16()), std::end(sphere.GetIndices16()));
 	indices.insert(indices.end(), std::begin(cylinder.GetIndices16()), std::end(cylinder.GetIndices16()));
 
@@ -699,6 +722,7 @@ void TexColumnsApp::BuildShapeGeometry()
 
 	geo->DrawArgs["box"] = boxSubmesh;
 	geo->DrawArgs["grid"] = gridSubmesh;
+	geo->DrawArgs["plane"] = planeSubmesh;
 	geo->DrawArgs["sphere"] = sphereSubmesh;
 	geo->DrawArgs["cylinder"] = cylinderSubmesh;
 
@@ -726,6 +750,7 @@ void TexColumnsApp::BuildPSOs()
 		mShaders["opaquePS"]->GetBufferSize()
 	};
 	opaquePsoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	opaquePsoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
 	opaquePsoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	opaquePsoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	opaquePsoDesc.SampleMask = UINT_MAX;
@@ -759,8 +784,8 @@ void TexColumnsApp::BuildMaterials()
 
 	auto stone0 = std::make_unique<Material>();
 	stone0->Name = "stone0";
-	stone0->MatCBIndex = 1;
-	stone0->DiffuseSrvHeapIndex = 1;
+	stone0->MatCBIndex = 0;
+	stone0->DiffuseSrvHeapIndex = 0;
 	stone0->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
     stone0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
     stone0->Roughness = 0.3f;
@@ -772,26 +797,65 @@ void TexColumnsApp::BuildMaterials()
 	tile0->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
     tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
     tile0->Roughness = 0.3f;
+
+	auto red0 = std::make_unique<Material>();
+	red0->Name = "red0";
+	red0->MatCBIndex = 3;
+	red0->DiffuseSrvHeapIndex = 3;
+	red0->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	red0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	red0->Roughness = 0.3f;
 	
-	mMaterials["bricks0"] = std::move(bricks0);
+	//mMaterials["bricks0"] = std::move(bricks0);
 	mMaterials["stone0"] = std::move(stone0);
-	mMaterials["tile0"] = std::move(tile0);
+	//mMaterials["tile0"] = std::move(tile0);
+	//mMaterials["red0"] = std::move(red0);
 }
 
 void TexColumnsApp::BuildRenderItems()
 {
 	auto boxRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f)*XMMatrixTranslation(0.0f, 1.0f, 0.0f));
-	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
+	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(10.0f, 0.01f, 10.0f)*XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(5.0f, 1.0f, 20.0f));
 	boxRitem->ObjCBIndex = 0;
+	//boxRitem->Mat = mMaterials["stone0"].get();
 	boxRitem->Mat = mMaterials["stone0"].get();
+	/*Material* red0{};
+	red0->Name = "red0";
+	red0->MatCBIndex = 3;
+	red0->DiffuseSrvHeapIndex = 3;
+	red0->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	red0->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
+	red0->Roughness = 0.3f;
+	boxRitem->Mat = red0;*/
 	boxRitem->Geo = mGeometries["shapeGeo"].get();
 	boxRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	boxRitem->IndexCount = boxRitem->Geo->DrawArgs["box"].IndexCount;
 	boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
 	boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
-	mAllRitems.push_back(std::move(boxRitem));
+	//mAllRitems.push_back(std::move(boxRitem));
 
+
+
+
+
+	auto planeRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&planeRitem->World, XMMatrixScaling(10.0f, 0.01f, 10.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	XMStoreFloat4x4(&planeRitem->TexTransform, XMMatrixScaling(5.0f, 1.0f, 20.0f));
+	planeRitem->ObjCBIndex = 0;
+	planeRitem->Mat = mMaterials["stone0"].get();
+	planeRitem->Geo = mGeometries["shapeGeo"].get();
+	planeRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	planeRitem->IndexCount = planeRitem->Geo->DrawArgs["plane"].IndexCount;
+	planeRitem->StartIndexLocation = planeRitem->Geo->DrawArgs["plane"].StartIndexLocation;
+	planeRitem->BaseVertexLocation = planeRitem->Geo->DrawArgs["plane"].BaseVertexLocation;
+	mAllRitems.push_back(std::move(planeRitem));
+
+
+
+
+
+	/*
     auto gridRitem = std::make_unique<RenderItem>();
     gridRitem->World = MathHelper::Identity4x4();
 	XMStoreFloat4x4(&gridRitem->TexTransform, XMMatrixScaling(8.0f, 8.0f, 1.0f));
@@ -864,6 +928,7 @@ void TexColumnsApp::BuildRenderItems()
 		mAllRitems.push_back(std::move(leftSphereRitem));
 		mAllRitems.push_back(std::move(rightSphereRitem));
 	}
+	*/
 
 	// All the render items are opaque.
 	for(auto& e : mAllRitems)

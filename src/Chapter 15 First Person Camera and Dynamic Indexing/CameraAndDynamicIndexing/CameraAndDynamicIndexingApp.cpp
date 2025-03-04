@@ -309,18 +309,47 @@ void CameraAndDynamicIndexingApp::OnMouseUp(WPARAM btnState, int x, int y)
 
 void CameraAndDynamicIndexingApp::OnMouseMove(WPARAM btnState, int x, int y)
 {
-    if((btnState & MK_LBUTTON) != 0)
-    {
+  //  // if((btnState & MK_LBUTTON) != 0)
+  //  {
+		//// Make each pixel correspond to a quarter of a degree.
+		//float dx = XMConvertToRadians(0.25f*static_cast<float>(x - mLastMousePos.x));
+		//float dy = XMConvertToRadians(0.25f*static_cast<float>(y - mLastMousePos.y));
+
+		//mCamera.Pitch(dy);
+		//mCamera.RotateY(dx);
+  //  }
+
+  //  mLastMousePos.x = x;
+  //  mLastMousePos.y = y;
+
+	if (mIsCursorInWindow && !mAppPaused)
+	{
 		// Make each pixel correspond to a quarter of a degree.
-		float dx = XMConvertToRadians(0.25f*static_cast<float>(x - mLastMousePos.x));
-		float dy = XMConvertToRadians(0.25f*static_cast<float>(y - mLastMousePos.y));
+		float dx = XMConvertToRadians(0.25f * static_cast<float>(x - mLastMousePos.x));
+		float dy = XMConvertToRadians(0.25f * static_cast<float>(y - mLastMousePos.y));
 
 		mCamera.Pitch(dy);
-		mCamera.RotateY(dx);
-    }
 
-    mLastMousePos.x = x;
-    mLastMousePos.y = y;
+		// Ограничение поворота по вертикали
+		if (mCamera.Pitch(dy) > XM_PIDIV2)
+		{
+			mCamera.SetPitch(XM_PIDIV2);
+		}
+		else if (mCamera.GetPitch() < -XM_PIDIV2)
+		{
+			mCamera.SetPitch(-XM_PIDIV2);
+		}
+
+		mCamera.RotateY(dx);
+	}
+
+	// Центрирование курсора в окне
+	POINT center = { mClientWidth / 2, mClientHeight / 2 };
+	ClientToScreen(mhMainWnd, &center);
+	SetCursorPos(center.x, center.y);
+
+	mLastMousePos.x = mClientWidth / 2;
+	mLastMousePos.y = mClientHeight / 2;
 }
  
 void CameraAndDynamicIndexingApp::OnKeyboardInput(const GameTimer& gt)

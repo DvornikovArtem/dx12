@@ -84,16 +84,51 @@ struct VertexOut
 	float2 TexC    : TEXCOORD;
 };
 
+// Функция шума с плотностью, которая генерирует пики в зависимости от клеток
+float noise2(float2 st, float density)
+{
+    // Размер клетки в зависимости от плотности
+    float cellSize = 1.0 / density;
+
+    // Разделяем координаты st на клетки
+    float2 cellCoords = floor(st / cellSize);
+
+    // Генерируем псевдослучайное значение в каждой клетке
+    float i = floor(cellCoords.x) * 335.0 + floor(cellCoords.y) * 335.0;
+    return frac(sin(i) * 43758.5453123);
+}
+
+float noise(float2 st)
+{
+    float i = floor(st.x) * 335.0 + floor(st.y) * 335.0;
+    //float i = floor(st.x);
+    //float f = frac(st.x) * frac(st.y);
+    return frac(sin(i) * 43758.5453123);
+}
+
 VertexOut VS(VertexIn vin)
 {
 	VertexOut vout = (VertexOut)0.0f;
 	
     // Transform to world space.
     float4 posW = mul(float4(vin.PosL, 1.0f), gWorld);
+    
+    
+    //posW.y = noise(2);
+    // Добавляем сдвиг по y на основе шума
+    //float noiseOffset = noise2(posW.xz, 1.0); // Масштабирование для корректных результатов
+    //posW.y = noiseOffset * 3.6; // gNoiseScale задаёт амплитуду шума
+    
+    
     vout.PosW = posW.xyz;
+    
+    //if (posW.y < 0.0)
+    //    posW.y = 0.0;
+    //else if (posW.y > 10.0)
+    //    posW.y = 10.0;
 
     // Assumes nonuniform scaling; otherwise, need to use inverse-transpose of world matrix.
-    vout.NormalW = mul(vin.NormalL, (float3x3)gWorld);
+    vout.NormalW = mul(vin.NormalL, (float3x3) gWorld);
 
     // Transform to homogeneous clip space.
     vout.PosH = mul(posW, gViewProj);

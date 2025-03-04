@@ -69,6 +69,7 @@ private:
     virtual void OnMouseDown(WPARAM btnState, int x, int y)override;
     virtual void OnMouseUp(WPARAM btnState, int x, int y)override;
     virtual void OnMouseMove(WPARAM btnState, int x, int y)override;
+	virtual void OnMouseWheelMove(WPARAM rotation)override;
 
     void OnKeyboardInput(const GameTimer& gt);
 	void UpdateCamera(const GameTimer& gt);
@@ -306,8 +307,8 @@ void LitColumnsApp::OnMouseMove(WPARAM btnState, int x, int y)
         float dy = XMConvertToRadians(0.25f*static_cast<float>(y - mLastMousePos.y));
 
         // Update angles based on input to orbit camera around box.
-        mTheta += dx;
-        mPhi += dy;
+        mTheta -= dx;
+        mPhi -= dy;
 
         // Restrict the angle mPhi.
         mPhi = MathHelper::Clamp(mPhi, 0.1f, MathHelper::Pi - 0.1f);
@@ -319,14 +320,19 @@ void LitColumnsApp::OnMouseMove(WPARAM btnState, int x, int y)
         float dy = 0.05f*static_cast<float>(y - mLastMousePos.y);
 
         // Update the camera radius based on input.
-        mRadius += dx - dy;
+        //mRadius += dx - dy;
 
         // Restrict the radius.
-        mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
+        //mRadius = MathHelper::Clamp(mRadius, 5.0f, 150.0f);
     }
 
     mLastMousePos.x = x;
     mLastMousePos.y = y;
+}
+
+void LitColumnsApp::OnMouseWheelMove(WPARAM rotation) {
+	mRadius -= int(rotation) * 0.0000001;
+	mRadius = MathHelper::Clamp(mRadius, 5.0f, 25.0f);
 }
  
 void LitColumnsApp::OnKeyboardInput(const GameTimer& gt)
@@ -468,7 +474,8 @@ void LitColumnsApp::BuildRootSignature()
 		0,
 		serializedRootSig->GetBufferPointer(),
 		serializedRootSig->GetBufferSize(),
-		IID_PPV_ARGS(mRootSignature.GetAddressOf())));
+		IID_PPV_ARGS(mRootSignature.GetAddressOf()))
+	);
 }
 
 void LitColumnsApp::BuildShadersAndInputLayout()
@@ -612,11 +619,13 @@ void LitColumnsApp::BuildShapeGeometry()
 
 void LitColumnsApp::BuildSkullGeometry()
 {
-	std::ifstream fin("Models/skull.txt");
+	
+	//std::ifstream fin("Models/skull.txt");
+	std::ifstream fin("Models/abezyana.obj");
 
 	if(!fin)
 	{
-		MessageBox(0, L"Models/skull.txt not found.", 0, 0);
+		MessageBoxW(0, L"Models/abezyana.obj not found.", 0, 0);
 		return;
 	}
 
@@ -624,28 +633,81 @@ void LitColumnsApp::BuildSkullGeometry()
 	UINT tcount = 0;
 	std::string ignore;
 
-	fin >> ignore >> vcount;
-	fin >> ignore >> tcount;
-	fin >> ignore >> ignore >> ignore >> ignore;
+	//fin >> ignore >> vcount;
+	//fin >> ignore >> tcount;
+	//fin >> ignore >> ignore >> ignore >> ignore;
+
+	//std::vector<Vertex> vertices(vcount);
+	//for(UINT i = 0; i < vcount; ++i)
+	//{
+	//	fin >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
+	//	fin >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
+	//}
+
+	//fin >> ignore;
+	//fin >> ignore;
+	//fin >> ignore;
+
+	//std::vector<std::int32_t> indices(3 * tcount);
+	//for(UINT i = 0; i < tcount; ++i)
+	//{
+	//	fin >> indices[i * 3 + 0] >> indices[i * 3 + 1] >> indices[i * 3 + 2];
+	//}
+	//
+	//fin.close();
 
 	std::vector<Vertex> vertices(vcount);
-	for(UINT i = 0; i < vcount; ++i)
-	{
-		fin >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
-		fin >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
-	}
-
-	fin >> ignore;
-	fin >> ignore;
-	fin >> ignore;
-
 	std::vector<std::int32_t> indices(3 * tcount);
-	for(UINT i = 0; i < tcount; ++i)
-	{
-		fin >> indices[i * 3 + 0] >> indices[i * 3 + 1] >> indices[i * 3 + 2];
-	}
+	std::vector<XMFLOAT3> positions;
+	std::vector<XMFLOAT3> normals;
+	std::vector<XMFLOAT2> texcoords;
 
+	std::string line;
+	while (std::getline(fin, line)) {
+		std::istringstream iss(line);
+		std::string type;
+		if (!(iss >> type)) continue;
+
+		if (type == "v") {
+			XMFLOAT3 pos;
+			if (iss >> pos.x >> pos.y >> pos.z)
+				positions.push_back(pos);
+		}
+		else if (type == "vn") {
+			XMFLOAT3 normal;
+			if (iss >> normal.x >> normal.y >> normal.z)
+				normals.push_back(normal);
+		}
+		else if (type == "vt") {
+			XMFLOAT2 tex;
+			if (iss >> tex.x >> tex.y) {
+				tex.y = 1.0f - tex.y;
+				texcoords.push_back(tex);
+			}
+		}
+		else if (type == "f") {
+			int p[3] = { -1, -1, -1 }, t[3] = { -1, -1, -1 }, n[3] = { -1, -1, -1 };
+			char slash;
+			for (int i = 0; i < 3; ++i) {
+				if (!(iss >> p[i] >> slash >> t[i] >> slash >> n[i])) break;
+				--p[i]; --t[i]; --n[i];
+			}
+			for (int i = 0; i < 3; ++i) {
+				if (p[i] < 0 || p[i] >= (int)positions.size() ||
+					t[i] < 0 || t[i] >= (int)texcoords.size() ||
+					n[i] < 0 || n[i] >= (int)normals.size()) continue;
+
+				Vertex v;
+				v.Pos = positions[p[i]];
+				//v.TexC = texcoords[t[i]];
+				v.Normal = normals[n[i]];
+				vertices.push_back(v);
+				indices.push_back(static_cast<std::int32_t>(vertices.size() - 1));
+			}
+		}
+	}
 	fin.close();
+
 
 	//
 	// Pack the indices of all the meshes into one index buffer.
@@ -683,6 +745,7 @@ void LitColumnsApp::BuildSkullGeometry()
 	geo->DrawArgs["skull"] = submesh;
 
 	mGeometries[geo->Name] = std::move(geo);
+	
 }
 
 void LitColumnsApp::BuildPSOs()
@@ -753,6 +816,7 @@ void LitColumnsApp::BuildMaterials()
 	tile0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
 	tile0->Roughness = 0.2f;
 
+	
 	auto skullMat = std::make_unique<Material>();
 	skullMat->Name = "skullMat";
 	skullMat->MatCBIndex = 3;
@@ -761,26 +825,70 @@ void LitColumnsApp::BuildMaterials()
 	skullMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05);
 	skullMat->Roughness = 0.3f;
 	
+
+	auto red0 = std::make_unique<Material>();
+	red0->Name = "red0";
+	red0->MatCBIndex = 3;
+	red0->DiffuseSrvHeapIndex = 3;
+	red0->DiffuseAlbedo = XMFLOAT4(Colors::Red);
+	red0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	red0->Roughness = 0.2f;
+
+	auto blue0 = std::make_unique<Material>();
+	blue0->Name = "blue0";
+	blue0->MatCBIndex = 4;
+	blue0->DiffuseSrvHeapIndex = 4;
+	blue0->DiffuseAlbedo = XMFLOAT4(Colors::Blue);
+	blue0->FresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	blue0->Roughness = 0.2f;
+	
 	mMaterials["bricks0"] = std::move(bricks0);
 	mMaterials["stone0"] = std::move(stone0);
 	mMaterials["tile0"] = std::move(tile0);
 	mMaterials["skullMat"] = std::move(skullMat);
+	mMaterials["red0"] = std::move(red0);
+	mMaterials["blue0"] = std::move(blue0);
 }
 
 void LitColumnsApp::BuildRenderItems()
 {
-	auto boxRitem = std::make_unique<RenderItem>();
-	XMStoreFloat4x4(&boxRitem->World, XMMatrixScaling(2.0f, 2.0f, 2.0f)*XMMatrixTranslation(0.0f, 0.5f, 0.0f));
-	XMStoreFloat4x4(&boxRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
-	boxRitem->ObjCBIndex = 0;
-	boxRitem->Mat = mMaterials["stone0"].get();
-	boxRitem->Geo = mGeometries["shapeGeo"].get();
-	boxRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	boxRitem->IndexCount = boxRitem->Geo->DrawArgs["box"].IndexCount;
-	boxRitem->StartIndexLocation = boxRitem->Geo->DrawArgs["box"].StartIndexLocation;
-	boxRitem->BaseVertexLocation = boxRitem->Geo->DrawArgs["box"].BaseVertexLocation;
-	mAllRitems.push_back(std::move(boxRitem));
+	/*auto planeRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&planeRitem->World, XMMatrixScaling(5.0f, 1.f, 1.0f)*XMMatrixTranslation(0.0f, 0.f, 0.0f));
+	XMStoreFloat4x4(&planeRitem->TexTransform, XMMatrixScaling(15.0f, 1.0f, 5.0f));
+	planeRitem->ObjCBIndex = 0;
+	planeRitem->Mat = mMaterials["red0"].get();
+	planeRitem->Geo = mGeometries["shapeGeo"].get();
+	planeRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	planeRitem->IndexCount = planeRitem->Geo->DrawArgs["box"].IndexCount;
+	planeRitem->StartIndexLocation = planeRitem->Geo->DrawArgs["box"].StartIndexLocation;
+	planeRitem->BaseVertexLocation = planeRitem->Geo->DrawArgs["box"].BaseVertexLocation;
+	mAllRitems.push_back(std::move(planeRitem));
 
+	auto planeRitem2 = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&planeRitem2->World, XMMatrixScaling(1.0f, 5.0f, 1.0f) * XMMatrixTranslation(5.0f, 0.f, 0.0f));
+	XMStoreFloat4x4(&planeRitem2->TexTransform, XMMatrixScaling(8.0f, 8.0f, 8.0f));
+	planeRitem2->ObjCBIndex = 1;
+	planeRitem2->Mat = mMaterials["blue0"].get();
+	planeRitem2->Geo = mGeometries["shapeGeo"].get();
+	planeRitem2->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	planeRitem2->IndexCount = planeRitem2->Geo->DrawArgs["box"].IndexCount;
+	planeRitem2->StartIndexLocation = planeRitem2->Geo->DrawArgs["box"].StartIndexLocation;
+	planeRitem2->BaseVertexLocation = planeRitem2->Geo->DrawArgs["box"].BaseVertexLocation;
+	mAllRitems.push_back(std::move(planeRitem2));*/
+
+	auto skullRitem = std::make_unique<RenderItem>();
+	XMStoreFloat4x4(&skullRitem->World, XMMatrixScaling(0.5f, 0.5f, 0.5f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	skullRitem->TexTransform = MathHelper::Identity4x4();
+	skullRitem->ObjCBIndex = 0;
+	skullRitem->Mat = mMaterials["skullMat"].get();
+	skullRitem->Geo = mGeometries["skullGeo"].get();
+	skullRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	skullRitem->IndexCount = skullRitem->Geo->DrawArgs["skull"].IndexCount;
+	skullRitem->StartIndexLocation = skullRitem->Geo->DrawArgs["skull"].StartIndexLocation;
+	skullRitem->BaseVertexLocation = skullRitem->Geo->DrawArgs["skull"].BaseVertexLocation;
+	mAllRitems.push_back(std::move(skullRitem));
+
+	/*
     auto gridRitem = std::make_unique<RenderItem>();
     gridRitem->World = MathHelper::Identity4x4();
 	XMStoreFloat4x4(&gridRitem->TexTransform, XMMatrixScaling(8.0f, 8.0f, 1.0f));
@@ -865,10 +973,19 @@ void LitColumnsApp::BuildRenderItems()
 		mAllRitems.push_back(std::move(leftSphereRitem));
 		mAllRitems.push_back(std::move(rightSphereRitem));
 	}
+	*/
 
 	// All the render items are opaque.
 	for(auto& e : mAllRitems)
 		mOpaqueRitems.push_back(e.get());
+}
+
+std::vector<uint8_t> GenerateNoiseTexture(int width, int height) {
+	std::vector<uint8_t> noiseData(width * height);
+	for (int i = 0; i < width * height; ++i) {
+		noiseData[i] = static_cast<uint8_t>(rand() % 256);
+	}
+	return noiseData;
 }
 
 void LitColumnsApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
@@ -878,6 +995,11 @@ void LitColumnsApp::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const st
  
 	auto objectCB = mCurrFrameResource->ObjectCB->Resource();
 	auto matCB = mCurrFrameResource->MaterialCB->Resource();
+
+	
+	
+
+
 
     // For each render item...
     for(size_t i = 0; i < ritems.size(); ++i)

@@ -470,6 +470,7 @@ void StencilApp::UpdateObjectCBs(const GameTimer& gt)
 			e->NumFramesDirty--;
 		}
 	}
+	
 }
 
 void StencilApp::UpdateMaterialCBs(const GameTimer& gt)
@@ -558,36 +559,52 @@ void StencilApp::LoadTextures()
 {
 	auto bricksTex = std::make_unique<Texture>();
 	bricksTex->Name = "bricksTex";
-	bricksTex->Filename = L"../../Textures/bricks3.dds";
+	bricksTex->Filename = L"D:/visual studio projects/Box 2/src/Textures/bricks3.dds";
 	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
 		mCommandList.Get(), bricksTex->Filename.c_str(),
 		bricksTex->Resource, bricksTex->UploadHeap));
 
 	auto checkboardTex = std::make_unique<Texture>();
 	checkboardTex->Name = "checkboardTex";
-	checkboardTex->Filename = L"../../Textures/checkboard.dds";
+	checkboardTex->Filename = L"D:/visual studio projects/Box 2/src/Textures/checkboard.dds";
 	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
 		mCommandList.Get(), checkboardTex->Filename.c_str(),
 		checkboardTex->Resource, checkboardTex->UploadHeap));
 
 	auto iceTex = std::make_unique<Texture>();
 	iceTex->Name = "iceTex";
-	iceTex->Filename = L"../../Textures/ice.dds";
+	iceTex->Filename = L"D:/visual studio projects/Box 2/src/Textures/ice.dds";
 	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
 		mCommandList.Get(), iceTex->Filename.c_str(),
 		iceTex->Resource, iceTex->UploadHeap));
 
 	auto white1x1Tex = std::make_unique<Texture>();
 	white1x1Tex->Name = "white1x1Tex";
-	white1x1Tex->Filename = L"../../Textures/white1x1.dds";
+	white1x1Tex->Filename = L"D:/visual studio projects/Box 2/src/Textures/white1x1.dds";
 	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
 		mCommandList.Get(), white1x1Tex->Filename.c_str(),
 		white1x1Tex->Resource, white1x1Tex->UploadHeap));
+
+	auto meshTex = std::make_unique<Texture>();
+	meshTex->Name = "meshTex";
+	meshTex->Filename = L"D:/visual studio projects/Box 2/src/Textures/african_head_diffuse.dds";
+	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
+		mCommandList.Get(), meshTex->Filename.c_str(),
+		meshTex->Resource, meshTex->UploadHeap));
+
+	auto redTex = std::make_unique<Texture>();
+	redTex->Name = "redTex";
+	redTex->Filename = L"D:/visual studio projects/Box 2/src/Textures/rsq.dds";
+	ThrowIfFailed(DirectX::CreateDDSTextureFromFile12(md3dDevice.Get(),
+		mCommandList.Get(), redTex->Filename.c_str(),
+		redTex->Resource, redTex->UploadHeap));
 
 	mTextures[bricksTex->Name] = std::move(bricksTex);
 	mTextures[checkboardTex->Name] = std::move(checkboardTex);
 	mTextures[iceTex->Name] = std::move(iceTex);
 	mTextures[white1x1Tex->Name] = std::move(white1x1Tex);
+	mTextures[meshTex->Name] = std::move(meshTex);
+	mTextures[redTex->Name] = std::move(redTex);
 }
 
 void StencilApp::BuildRootSignature()
@@ -636,7 +653,7 @@ void StencilApp::BuildDescriptorHeaps()
 	// Create the SRV heap.
 	//
 	D3D12_DESCRIPTOR_HEAP_DESC srvHeapDesc = {};
-	srvHeapDesc.NumDescriptors = 4;
+	srvHeapDesc.NumDescriptors = 6;
 	srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(md3dDevice->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&mSrvDescriptorHeap)));
@@ -646,36 +663,78 @@ void StencilApp::BuildDescriptorHeaps()
 	//
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(mSrvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-	auto bricksTex = mTextures["bricksTex"]->Resource;
-	auto checkboardTex = mTextures["checkboardTex"]->Resource;
-	auto iceTex = mTextures["iceTex"]->Resource;
-	auto white1x1Tex = mTextures["white1x1Tex"]->Resource;
 
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = bricksTex->GetDesc().Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = -1;
-	md3dDevice->CreateShaderResourceView(bricksTex.Get(), &srvDesc, hDescriptor);
+	std::vector<std::string> textureNames = {
+	"bricksTex", "checkboardTex", "iceTex", "white1x1Tex", "meshTex", "redTex"
+	};
 
-	// next descriptor
-	hDescriptor.Offset(1, mCbvSrvDescriptorSize);
 
-	srvDesc.Format = checkboardTex->GetDesc().Format;
-	md3dDevice->CreateShaderResourceView(checkboardTex.Get(), &srvDesc, hDescriptor);
+	for (const auto& name : textureNames) {
+		auto it = mTextures.find(name);
+		if (it == mTextures.end()) {
+			// Обработка ошибки: текстура не найдена
+			OutputDebugStringA(("Texture not found: " + name + "\n").c_str());
+			continue;
+		}
 
-	// next descriptor
-	hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+		auto& tex = it->second->Resource;
+		if (!tex) {
+			// Обработка ошибки: ресурс текстуры не инициализирован
+			OutputDebugStringA(("Texture resource is null: " + name + "\n").c_str());
+			continue;
+		}
 
-	srvDesc.Format = iceTex->GetDesc().Format;
-	md3dDevice->CreateShaderResourceView(iceTex.Get(), &srvDesc, hDescriptor);
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 
-	// next descriptor
-	hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = tex->GetDesc().Format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = -1;
+		md3dDevice->CreateShaderResourceView(tex.Get(), &srvDesc, hDescriptor);
 
-	srvDesc.Format = white1x1Tex->GetDesc().Format;
-	md3dDevice->CreateShaderResourceView(white1x1Tex.Get(), &srvDesc, hDescriptor);
+		// next descriptor
+		hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+	}
+
+
+	//auto& bricksTex = mTextures["bricksTex"]->Resource;
+	//auto& checkboardTex = mTextures["checkboardTex"]->Resource;
+	//auto& iceTex = mTextures["iceTex"]->Resource;
+	//auto& white1x1Tex = mTextures["white1x1Tex"]->Resource;
+	//auto& meshTex = mTextures["meshTex"]->Resource;
+
+	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	//srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	//srvDesc.Format = bricksTex->GetDesc().Format;
+	//srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	//srvDesc.Texture2D.MostDetailedMip = 0;
+	//srvDesc.Texture2D.MipLevels = -1;
+	//md3dDevice->CreateShaderResourceView(bricksTex.Get(), &srvDesc, hDescriptor);
+
+	//// next descriptor
+	//hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+
+	//srvDesc.Format = checkboardTex->GetDesc().Format;
+	//md3dDevice->CreateShaderResourceView(checkboardTex.Get(), &srvDesc, hDescriptor);
+
+	//// next descriptor
+	//hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+
+	//srvDesc.Format = iceTex->GetDesc().Format;
+	//md3dDevice->CreateShaderResourceView(iceTex.Get(), &srvDesc, hDescriptor);
+
+	//// next descriptor
+	//hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+
+	//srvDesc.Format = white1x1Tex->GetDesc().Format;
+	//md3dDevice->CreateShaderResourceView(white1x1Tex.Get(), &srvDesc, hDescriptor);
+
+	//// next descriptor
+	//hDescriptor.Offset(1, mCbvSrvDescriptorSize);
+
+	//srvDesc.Format = meshTex->GetDesc().Format;
+	//md3dDevice->CreateShaderResourceView(meshTex.Get(), &srvDesc, hDescriptor);
 }
 
 void StencilApp::BuildShadersAndInputLayout()
@@ -820,7 +879,7 @@ void StencilApp::BuildRoomGeometry()
 
 void StencilApp::BuildSkullGeometry()
 {
-	std::ifstream fin("Models/skull.txt");
+	/*std::ifstream fin("Models/skull.txt");
 	
 	if(!fin)
 	{
@@ -862,6 +921,156 @@ void StencilApp::BuildSkullGeometry()
 	// Pack the indices of all the meshes into one index buffer.
 	//
  
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::int32_t);
+
+	auto geo = std::make_unique<MeshGeometry>();
+	geo->Name = "skullGeo";
+
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &geo->VertexBufferCPU));
+	CopyMemory(geo->VertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &geo->IndexBufferCPU));
+	CopyMemory(geo->IndexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	geo->VertexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), vertices.data(), vbByteSize, geo->VertexBufferUploader);
+
+	geo->IndexBufferGPU = d3dUtil::CreateDefaultBuffer(md3dDevice.Get(),
+		mCommandList.Get(), indices.data(), ibByteSize, geo->IndexBufferUploader);
+
+	geo->VertexByteStride = sizeof(Vertex);
+	geo->VertexBufferByteSize = vbByteSize;
+	geo->IndexFormat = DXGI_FORMAT_R32_UINT;
+	geo->IndexBufferByteSize = ibByteSize;
+
+	SubmeshGeometry submesh;
+	submesh.IndexCount = (UINT)indices.size();
+	submesh.StartIndexLocation = 0;
+	submesh.BaseVertexLocation = 0;
+
+	geo->DrawArgs["skull"] = submesh;
+
+	mGeometries[geo->Name] = std::move(geo);*/
+
+	//std::ifstream fin("Models/skull.txt");
+	std::ifstream fin("D:/visual studio projects/Box 2/src/Chapter 11 Stenciling/StencilDemo/Models/african_head.obj");
+
+	if (!fin)
+	{
+		MessageBoxW(0, L"Model not found.", 0, 0);
+		return;
+	}
+
+	UINT vcount = 0;
+	UINT tcount = 0;
+	std::string ignore;
+
+	//fin >> ignore >> vcount;
+	//fin >> ignore >> tcount;
+	//fin >> ignore >> ignore >> ignore >> ignore;
+
+	//std::vector<Vertex> vertices(vcount);
+	//for(UINT i = 0; i < vcount; ++i)
+	//{
+	//	fin >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
+	//	fin >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
+	//}
+
+	//fin >> ignore;
+	//fin >> ignore;
+	//fin >> ignore;
+
+	//std::vector<std::int32_t> indices(3 * tcount);
+	//for(UINT i = 0; i < tcount; ++i)
+	//{
+	//	fin >> indices[i * 3 + 0] >> indices[i * 3 + 1] >> indices[i * 3 + 2];
+	//}
+	//
+	//fin.close();
+
+	std::vector<Vertex> vertices;
+	std::vector<std::int32_t> indices;
+	std::vector<DirectX::XMFLOAT3> positions;
+	std::vector<DirectX::XMFLOAT3> normals;
+	std::vector<DirectX::XMFLOAT2> texcoords;
+
+	std::string line;
+	while (!fin.eof()) {
+		std::getline(fin, line);
+		std::istringstream iss(line.c_str());
+		char trash;
+
+		//std::cout << line << std::endl;
+
+		if (!line.compare(0, 2, "v ")) {
+			//std::cout << "vertex!!!!" << std::endl;
+			iss >> trash;
+			XMFLOAT3 pos;
+			iss >> pos.x >> pos.y >> pos.z;
+			positions.push_back(pos);
+		}
+		else if (!line.compare(0, 3, "vn ")) {
+			//std::cout << "normal!!!!" << std::endl;
+			iss >> trash >> trash;
+			XMFLOAT3 normal;
+			iss >> normal.x >> normal.y >> normal.z;
+			normals.push_back(normal);
+		}
+		else if (!line.compare(0, 3, "vt ")) {
+			//std::cout << "texture!!!!" << std::endl;
+			iss >> trash >> trash;
+			XMFLOAT2 tex;
+			iss >> tex.x >> tex.y;
+			tex.y = 1.0f - tex.y;
+			texcoords.push_back(tex);
+		}
+		else if (!line.compare(0, 2, "f ")) {
+			//std::cout << "face!!!!" << std::endl;
+			int p[3] = { -1, -1, -1 }, t[3] = { -1, -1, -1 }, n[3] = { -1, -1, -1 };
+			char slash;
+			iss >> slash;
+			//std::cout << line << std::endl;
+			for (int i = 0; i < 3; ++i) {
+				iss >> p[i] >> slash >> t[i] >> slash >> n[i];
+				//std::cout << p[i] << " | " << n[i] << std::endl;
+				--p[i]; --n[i]; --t[i];
+				//std::cout << p[i] << " | " << n[i] << std::endl;
+			}
+			for (int i = 0; i < 3; ++i) {
+				/*if (p[i] < 0 || p[i] >= (int)positions.size() ||
+					n[i] < 0 || n[i] >= (int)normals.size()) {
+					std::cout << "2";
+					continue;
+				}*/
+
+				//std::cout << "hi " << p[0] << " | " << p[1] << " | " << p[2];
+
+				Vertex v;
+				v.Pos = positions[p[i]];
+				v.TexC = texcoords[t[i]];
+				v.Normal = normals[n[i]];
+
+				//std::cout << v.Pos.x << "cooool" << std::endl;
+
+				vertices.push_back(v);
+
+				indices.push_back(static_cast<std::int32_t>(vertices.size() - 1));
+
+
+				//indices.push_back(static_cast<std::int32_t>(p[i]));
+				//indices.push_back(static_cast<std::int32_t>(t[i]));
+				//indices.push_back(static_cast<std::int32_t>(n[i]));
+			}
+		}
+	}
+	fin.close();
+
+	//
+	// Pack the indices of all the meshes into one index buffer.
+	//
+
 	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
 
 	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::int32_t);
@@ -1083,16 +1292,25 @@ void StencilApp::BuildMaterials()
 
 	auto shadowMat = std::make_unique<Material>();
 	shadowMat->Name = "shadowMat";
-	shadowMat->MatCBIndex = 4;
-	shadowMat->DiffuseSrvHeapIndex = 3;
+	shadowMat->MatCBIndex = 5;
+	shadowMat->DiffuseSrvHeapIndex = 5;
 	shadowMat->DiffuseAlbedo = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.5f);
 	shadowMat->FresnelR0 = XMFLOAT3(0.001f, 0.001f, 0.001f);
 	shadowMat->Roughness = 0.0f;
+
+	auto meshMat = std::make_unique<Material>();
+	meshMat->Name = "mesh";
+	meshMat->MatCBIndex = 4;
+	meshMat->DiffuseSrvHeapIndex = 4;
+	meshMat->DiffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	meshMat->FresnelR0 = XMFLOAT3(0.05f, 0.05f, 0.05f);
+	meshMat->Roughness = 0.3f;
 
 	mMaterials["bricks"] = std::move(bricks);
 	mMaterials["checkertile"] = std::move(checkertile);
 	mMaterials["icemirror"] = std::move(icemirror);
 	mMaterials["skullMat"] = std::move(skullMat);
+	mMaterials["mesh"] = std::move(meshMat);
 	mMaterials["shadowMat"] = std::move(shadowMat);
 }
 
@@ -1112,7 +1330,8 @@ void StencilApp::BuildRenderItems()
 
     auto wallsRitem = std::make_unique<RenderItem>();
 	wallsRitem->World = MathHelper::Identity4x4();
-	wallsRitem->TexTransform = MathHelper::Identity4x4();
+	XMStoreFloat4x4(&wallsRitem->World, XMMatrixScaling(10.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	XMStoreFloat4x4(&wallsRitem->TexTransform, XMMatrixScaling(1.0f, 1.0f, 1.0f));
 	wallsRitem->ObjCBIndex = 1;
 	wallsRitem->Mat = mMaterials["bricks"].get();
 	wallsRitem->Geo = mGeometries["roomGeo"].get();
@@ -1124,9 +1343,11 @@ void StencilApp::BuildRenderItems()
 
 	auto skullRitem = std::make_unique<RenderItem>();
 	skullRitem->World = MathHelper::Identity4x4();
+	XMStoreFloat4x4(&skullRitem->World, XMMatrixScaling(10.0f, 10.0f, 1.0f) * XMMatrixRotationRollPitchYaw(0.0f, 0.0f, 0.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 	skullRitem->TexTransform = MathHelper::Identity4x4();
+	//XMStoreFloat4x4(&skullRitem->TexTransform, XMMatrixScaling(1.0f, 10.0f, 1.0f));
 	skullRitem->ObjCBIndex = 2;
-	skullRitem->Mat = mMaterials["skullMat"].get();
+	skullRitem->Mat = mMaterials["mesh"].get();
 	skullRitem->Geo = mGeometries["skullGeo"].get();
 	skullRitem->PrimitiveType = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	skullRitem->IndexCount = skullRitem->Geo->DrawArgs["skull"].IndexCount;

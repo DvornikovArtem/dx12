@@ -60,11 +60,15 @@ cbuffer cbPass : register(b2)
     // are spot lights for a maximum of MaxLights per object.
     Light gLights[MaxLights];
 };
+
+Texture2D gNoiseTexture : register(t0); // Текстура шума
+SamplerState gSampler : register(s0); // Сэмплер для текстуры
  
 struct VertexIn
 {
-	float3 PosL    : POSITION;
-    float3 NormalL : NORMAL;
+	float3 PosL     : POSITION;
+    float3 NormalL  : NORMAL;
+    float2 TexC     : TEXCOORD;
 };
 
 struct VertexOut
@@ -72,11 +76,20 @@ struct VertexOut
 	float4 PosH    : SV_POSITION;
     float3 PosW    : POSITION;
     float3 NormalW : NORMAL;
+    float2 TexC    : TEXCOORD; // Передача текстурных координат
 };
 
 VertexOut VS(VertexIn vin)
 {
 	VertexOut vout = (VertexOut)0.0f;
+    
+    // Получаем смещение по оси Y из текстуры шума
+    float noiseValue = gNoiseTexture.Sample(gSampler, vin.TexC).r; // Используем канал R текстуры
+    //float yOffset = noiseValue * 0.1f; // Умножаем на масштаб для контроля величины смещения
+    float yOffset = noiseValue * 0.1f;
+    
+    // Добавляем смещение по оси Y
+    float4 posL = float4(vin.PosL.x, vin.PosL.y + yOffset, vin.PosL.z, 1.0f);
 	
     // Transform to world space.
     float4 posW = mul(float4(vin.PosL, 1.0f), gWorld);

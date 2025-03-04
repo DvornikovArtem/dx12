@@ -49,9 +49,12 @@ protected:
     virtual void Draw(const GameTimer& gt)=0;
 
 	// Convenience overrides for handling mouse input.
-	virtual void OnMouseDown(WPARAM btnState, int x, int y){ }
-	virtual void OnMouseUp(WPARAM btnState, int x, int y)  { }
-	virtual void OnMouseMove(WPARAM btnState, int x, int y){ }
+	virtual void OnMouseDown(WPARAM btnState, int x, int y) {}
+	virtual void OnMouseUp(WPARAM btnState, int x, int y) {}
+	virtual void OnMouseMove(WPARAM btnState, int x, int y) {}
+    virtual void OnMouseWheelMove(WPARAM rotation) {}
+
+    virtual void OnKeyboardPressed(WPARAM pressedButton, const GameTimer& gt) {}
 
 protected:
 
@@ -83,6 +86,8 @@ protected:
 	bool      mMaximized = false;  // is the application maximized?
 	bool      mResizing = false;   // are the resize bars being dragged?
     bool      mFullscreenState = false;// fullscreen enabled
+
+    bool mIsCursorInWindow = false;
 
 	// Set true to use 4X MSAA (§4.1.8).  The default is false.
     bool      m4xMsaaState = false;    // 4X MSAA enabled
@@ -118,7 +123,7 @@ protected:
 	UINT mCbvSrvUavDescriptorSize = 0;
 
 	// Derived class should set these in derived constructor to customize starting values.
-	std::wstring mMainWndCaption = L"d3d App";
+	std::wstring mMainWndCaption = L"okno";
 	D3D_DRIVER_TYPE md3dDriverType = D3D_DRIVER_TYPE_HARDWARE;
     DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
     DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
